@@ -84,7 +84,34 @@ body {
 .overlay p { margin: 0; color: var(--muted); line-height: 1.6; max-width: 30ch; font-size: 14px; }
 .overlay .explain { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-width: 32ch; font-size: 14px; line-height: 1.6; text-align: left; }
 .overlay .explain strong { font-family: var(--font-drug); }
-.overlay.scroll { justify-content: flex-start; overflow-y: auto; gap: 10px; padding: 14px 14px 18px; background: var(--bg); backdrop-filter: none; }
+/* 全螢幕的一頁式畫面：內容固定在一個畫面內，主要按鈕固定在最下面 */
+.overlay.screen {
+  position: fixed; inset: 0; z-index: 20; background: var(--bg); backdrop-filter: none;
+  align-items: center; justify-content: stretch; gap: 0; text-align: left; box-sizing: border-box;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.screen-in { width: 100%; max-width: 440px; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.s-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.s-body.center { justify-content: center; align-items: center; text-align: center; gap: 14px; }
+.s-foot { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.s-foot.row2 { flex-direction: row; justify-content: center; }
+.s-foot.row2 .btn { flex: 1; }
+.s-foot.row2 .btn.ghost { flex: 0 0 auto; }
+.btn.big { width: 100%; padding: 14px 20px; font-size: 17px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; counter-reset: st; }
+.steps li { flex: 1; counter-increment: st; font-size: 12px; font-weight: 700; color: var(--muted); padding-top: 6px; border-top: 4px solid var(--line); text-align: center; }
+.steps li::before { content: counter(st) " "; font-family: var(--font-drug); }
+.steps li.done { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.steps li.on { border-color: var(--accent); color: var(--accent); }
+.sec.grow { flex: 1; min-height: 0; }
+.pv { flex: 1; min-height: 70px; display: flex; }
+.end-head { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+@media (max-height: 640px) {
+  .screen-in { gap: 8px; }
+  .overlay.screen h1 { font-size: 24px; }
+  .overlay.screen p { font-size: 13px; line-height: 1.5; }
+  .score-big { font-size: 34px; }
+}
 .btn {
   font: inherit; font-weight: 700; font-size: 16px; border: 0; border-radius: 999px;
   background: var(--accent); color: var(--accent-ink); padding: 11px 26px; cursor: pointer;
@@ -112,24 +139,25 @@ body {
 .swatch[aria-pressed="true"] i { box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
 .swatch[aria-pressed="true"] span { color: var(--ink); }
 .opt:focus-visible, .swatch:focus-visible, .unit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-#preview { width: 100%; aspect-ratio: 300 / 180; display: block; border-radius: 10px; border: 1px solid var(--line); }
+#preview { width: 100%; height: 100%; display: block; object-fit: contain; }
 
-/* 單元列表 */
-.units { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* 單元列表：6 列撐滿整個畫面 */
+.units { flex: 1; min-height: 0; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .unit {
-  font: inherit; text-align: left; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; column-gap: 8px; row-gap: 2px;
-  padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
+  font: inherit; text-align: left; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; align-content: center; column-gap: 8px; row-gap: 2px;
+  min-height: 0; overflow: hidden;
+  padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
 }
 .unit .no { grid-row: 1 / 3; align-self: center; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-drug); font-weight: 700; background: var(--accent); color: var(--accent-ink); }
 .unit .nm { font-weight: 700; font-size: 13px; line-height: 1.3; }
 .unit .st { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .unit.passed .no { background: var(--good); }
 .unit.passed .st { color: var(--good); font-weight: 700; }
-.unit[aria-pressed="true"] { border: 2px solid var(--accent); padding: 8px 9px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.unit[aria-pressed="true"] { border: 2px solid var(--accent); padding: 5px 9px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 .unit.act { grid-template-columns: 1fr; text-align: center; align-content: center; }
 .unit.act .nm { font-size: 15px; }
-.unit.restyle { border: 2px solid var(--accent); padding: 8px 9px; color: var(--accent); background: var(--panel); }
-.unit.go { border: 0; padding: 10px; background: var(--accent); color: var(--accent-ink); }
+.unit.restyle { border: 2px solid var(--accent); padding: 5px 9px; color: var(--accent); background: var(--panel); }
+.unit.go { border: 0; padding: 6px 10px; background: var(--accent); color: var(--accent-ink); }
 .unit.go .st { color: var(--accent-ink); opacity: .85; }
 .unit:disabled { cursor: not-allowed; opacity: .5; }
 .unit:disabled .no { background: var(--line); color: var(--muted); }
@@ -137,7 +165,7 @@ body {
 .progress b { color: var(--ink); font-family: var(--font-drug); }
 
 /* 結算 */
-.review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; }
+.review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; flex: 1; min-height: 0; overflow-y: auto; }
 .review li { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.5; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 4px; }
 .review .mark { font-weight: 900; }
 .review .ok { color: var(--good); } .review .ng { color: var(--bad); }
@@ -183,39 +211,54 @@ body {
   <div class="field" id="field">
     <canvas id="cv"></canvas>
 
-    <div class="overlay" id="ovStart">
-      <h1>接藥小遊戲</h1>
-      <p>上方出題，藥物會從天上掉下來。移動藥籃，接住<strong>符合題目</strong>的那一顆。</p>
-      <p>每題只能接一顆，接對得 10 分。一個單元 10 題，<strong>拿滿 100 分</strong>才能解鎖下一單元。</p>
-      <label class="name-field" for="nameInput">幫你的藥籃取個名字
-        <input id="nameInput" maxlength="8" placeholder="例如：小明" autocomplete="off">
-      </label>
-      <button class="btn" id="btnStart">選藥籃，開始</button>
-      <span class="keys">滑鼠／手指拖曳，或 ← → 鍵移動</span>
+    <div class="overlay screen" id="ovStart">
+      <div class="screen-in">
+        <ol class="steps"><li class="on">取名字</li><li>選藥籃</li><li>選單元</li></ol>
+        <div class="s-body center">
+          <h1>接藥小遊戲</h1>
+          <p>上方出題，藥物會從天上掉下來。移動藥籃，接住<strong>符合題目</strong>的那一顆。</p>
+          <p>每題只能接一顆，接對得 10 分。一個單元 10 題，<strong>拿滿 100 分</strong>才能解鎖下一單元。</p>
+          <label class="name-field" for="nameInput">幫你的藥籃取個名字
+            <input id="nameInput" maxlength="8" placeholder="例如：小明" autocomplete="off">
+          </label>
+        </div>
+        <div class="s-foot">
+          <button class="btn big" id="btnStart">下一步：選藥籃</button>
+          <span class="keys">遊戲中用滑鼠／手指拖曳，或 ← → 鍵移動藥籃</span>
+        </div>
+      </div>
     </div>
 
-    <div class="overlay scroll" id="ovSetup" hidden>
-      <h2>選擇你的藥籃</h2>
-      <section class="sec">
-        <div class="sec-h"><b>1</b> 款式</div>
-        <div class="styles" id="styleList"></div>
-      </section>
-      <section class="sec">
-        <div class="sec-h"><b>2</b> 顏色</div>
-        <div class="colors" id="colorList"></div>
-      </section>
-      <section class="sec">
-        <div class="sec-h"><b>3</b> 預覽 <span id="previewName"></span></div>
-        <canvas id="preview" aria-label="藥籃預覽"></canvas>
-        <label class="name-row" for="nameSetup">名字 <input id="nameSetup" maxlength="8" placeholder="可不填" autocomplete="off"></label>
-      </section>
-      <button class="btn" id="btnConfirm">確認，選擇單元</button>
+    <div class="overlay screen" id="ovSetup" hidden>
+      <div class="screen-in">
+        <ol class="steps"><li class="done">取名字</li><li class="on">選藥籃</li><li>選單元</li></ol>
+        <div class="s-body">
+          <section class="sec">
+            <div class="sec-h">款式</div>
+            <div class="styles" id="styleList"></div>
+          </section>
+          <section class="sec">
+            <div class="sec-h">顏色</div>
+            <div class="colors" id="colorList"></div>
+          </section>
+          <section class="sec grow">
+            <div class="sec-h">預覽 <span id="previewName"></span></div>
+            <div class="pv"><canvas id="preview" aria-label="藥籃預覽"></canvas></div>
+          </section>
+        </div>
+        <div class="s-foot row2">
+          <button class="btn ghost" id="btnBack">上一步</button>
+          <button class="btn big" id="btnConfirm">下一步：選單元</button>
+        </div>
+      </div>
     </div>
 
-    <div class="overlay scroll" id="ovUnits" hidden>
-      <h2>選擇單元</h2>
-      <div class="progress" id="progress"></div>
-      <div class="units" id="unitList"></div>
+    <div class="overlay screen" id="ovUnits" hidden>
+      <div class="screen-in">
+        <ol class="steps"><li class="done">取名字</li><li class="done">選藥籃</li><li class="on">選單元</li></ol>
+        <div class="progress" id="progress"></div>
+        <div class="units" id="unitList"></div>
+      </div>
     </div>
 
     <div class="overlay" id="ovFeedback" hidden>
@@ -225,12 +268,16 @@ body {
       <span class="keys">按空白鍵繼續</span>
     </div>
 
-    <div class="overlay scroll" id="ovEnd" hidden>
-      <h2 id="endTitle">單元完成</h2>
-      <div class="score-big" id="endScore">0</div>
-      <p class="end-note" id="endNote"></p>
-      <div class="row" id="endBtns"></div>
-      <ul class="review" id="review"></ul>
+    <div class="overlay screen" id="ovEnd" hidden>
+      <div class="screen-in">
+        <div class="end-head">
+          <h2 id="endTitle">單元完成</h2>
+          <div class="score-big" id="endScore">0</div>
+          <p class="end-note" id="endNote"></p>
+        </div>
+        <ul class="review" id="review"></ul>
+        <div class="s-foot row2" id="endBtns"></div>
+      </div>
     </div>
 
     <div class="overlay" id="ovPause" hidden>
@@ -681,7 +728,7 @@ function endUnit() {
         : `<span class="ng">沒接到</span>`}<br>正確答案 <span class="drug ok">${l.a}</span><br><span class="why">${l.why}</span></span></li>`
   ).join("");
   $("ovEnd").hidden = false;
-  $("ovEnd").scrollTop = 0;
+  $("review").scrollTop = 0;
   $("endBtns").querySelector("button").focus();
 }
 $("endBtns").addEventListener("click", e => {
@@ -969,12 +1016,9 @@ function drawBasket(x) { drawBasketOn(ctx, x, BY, CFG.style, COLORS[CFG.color], 
 function setName(v) {
   CFG.name = v.trim().slice(0, 8);
   store("drugCatchBasket", CFG);
-  ["nameInput", "nameSetup"].forEach(id => { if ($(id).value !== v) $(id).value = v; });
-  if (!$("ovSetup").hidden) renderSetup();
 }
-$("nameInput").value = $("nameSetup").value = CFG.name;
+$("nameInput").value = CFG.name;
 $("nameInput").addEventListener("input", e => setName(e.target.value));
-$("nameSetup").addEventListener("input", e => setName(e.target.value));
 $("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") $("btnStart").click(); });
 
 // ---------- 選藥籃畫面 ----------
@@ -1019,6 +1063,7 @@ function openSetup() {
 }
 
 $("btnStart").onclick = openSetup;
+$("btnBack").onclick = () => { hideAll(); $("ovStart").hidden = false; $("nameInput").focus(); };
 $("btnConfirm").onclick = () => { store("drugCatchBasket", CFG); openUnits(); };
 $("btnNext").onclick = nextQuestion;
 
