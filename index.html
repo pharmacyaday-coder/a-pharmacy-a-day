@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>A'phar｜接藥小遊戲</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A'phar 藥理接藥小遊戲：10 個單元、100 題，移動藥籃接住正確的藥物，滿分 100 才能解鎖下一單元。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="A'phar">
+<meta property="og:title" content="A'phar｜接藥小遊戲">
+<meta property="og:description" content="藥理 10 單元 · 100 題闖關。移動藥籃，接住正確的藥物！">
+<meta property="og:image" content="https://pharmacyaday-coder.github.io/a-pharmacy-a-day/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://pharmacyaday-coder.github.io/a-pharmacy-a-day/">
+<meta name="twitter:card" content="summary_large_image">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one centered portrait "pharmacy counter" column — question card on top, play field below, overlays sit on the field. */
+:root {
+  --bg: #e7efe9;          /* pale counter green */
+  --panel: #ffffff;
+  --ink: #18302a;
+  --muted: #5d7269;
+  --line: #c9d8cf;
+  --accent: #0f7a5c;      /* pharmacy green */
+  --accent-ink: #ffffff;
+  --good: #1f9d55;
+  --bad: #d64545;
+  --field-top: #f6faf7;
+  --field-bot: #dbe8e0;
+  --font-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-drug: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1a17; --panel: #172622; --ink: #e3efe9; --muted: #93aaa0; --line: #2a3e38;
+  --accent: #34c08f; --accent-ink: #062018; --good: #3ccf7b; --bad: #ff6b6b;
+  --field-top: #152420; --field-bot: #0c1513; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1a17; --panel: #172622; --ink: #e3efe9; --muted: #93aaa0; --line: #2a3e38;
+  --accent: #34c08f; --accent-ink: #062018; --good: #3ccf7b; --bad: #ff6b6b;
+  --field-top: #152420; --field-bot: #0c1513; color-scheme: dark; }
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  box-sizing: border-box;
+  display: flex; justify-content: center;
+  -webkit-user-select: none; user-select: none;
+}
+.game {
+  width: min(440px, 100%, calc((100dvh - 230px) * 0.75));
+  min-width: min(300px, 100%);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hud { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.hud b { color: var(--ink); font-family: var(--font-drug); font-variant-numeric: tabular-nums; font-size: 15px; }
+.qcard {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-height: 64px;
+}
+.qcard .tag { font-size: 11px; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+.qcard .q { font-size: 18px; font-weight: 700; line-height: 1.4; text-wrap: balance; }
+.field { position: relative; width: 100%; aspect-ratio: 3 / 4; max-width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); touch-action: none; }
+#cv { display: block; width: 100%; height: 100%; cursor: none; }
+
+.overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 20px; text-align: center;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(3px);
+}
+.overlay h1 { margin: 0; font-size: 28px; font-weight: 900; text-wrap: balance; }
+.overlay h2 { margin: 0; font-size: 22px; font-weight: 900; }
+.overlay p { margin: 0; color: var(--muted); line-height: 1.6; max-width: 30ch; font-size: 14px; }
+.overlay .explain { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-width: 32ch; font-size: 14px; line-height: 1.6; text-align: left; }
+.overlay .explain strong { font-family: var(--font-drug); }
+.overlay.scroll { justify-content: flex-start; overflow-y: auto; gap: 10px; padding: 14px 14px 18px; background: var(--bg); backdrop-filter: none; }
+.btn {
+  font: inherit; font-weight: 700; font-size: 16px; border: 0; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); padding: 11px 26px; cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.keys { font-size: 12px; color: var(--muted); }
+
+/* 選藥籃 */
+.scroll h2 { font-size: 19px; }
+.sec { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.sec-h { font-size: 13px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.sec-h b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 11px; }
+.sec-h span { margin-left: auto; color: var(--ink); }
+.styles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.opt { font: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 6px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.opt canvas { width: 100%; aspect-ratio: 130 / 84; display: block; }
+.opt span { font-size: 12px; font-weight: 700; }
+.opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.colors { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.swatch { font: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.swatch i { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--line); }
+.swatch span { font-size: 12px; font-weight: 700; }
+.swatch[aria-pressed="true"] i { box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
+.swatch[aria-pressed="true"] span { color: var(--ink); }
+.opt:focus-visible, .swatch:focus-visible, .unit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#preview { width: 100%; aspect-ratio: 300 / 180; display: block; border-radius: 10px; border: 1px solid var(--line); }
+
+/* 單元列表 */
+.units { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.unit {
+  font: inherit; text-align: left; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; column-gap: 8px; row-gap: 2px;
+  padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
+}
+.unit .no { grid-row: 1 / 3; align-self: center; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-drug); font-weight: 700; background: var(--accent); color: var(--accent-ink); }
+.unit .nm { font-weight: 700; font-size: 13px; line-height: 1.3; }
+.unit .st { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.unit.passed .no { background: var(--good); }
+.unit.passed .st { color: var(--good); font-weight: 700; }
+.unit[aria-pressed="true"] { border: 2px solid var(--accent); padding: 8px 9px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.unit.act { grid-template-columns: 1fr; text-align: center; align-content: center; }
+.unit.act .nm { font-size: 15px; }
+.unit.restyle { border: 2px solid var(--accent); padding: 8px 9px; color: var(--accent); background: var(--panel); }
+.unit.go { border: 0; padding: 10px; background: var(--accent); color: var(--accent-ink); }
+.unit.go .st { color: var(--accent-ink); opacity: .85; }
+.unit:disabled { cursor: not-allowed; opacity: .5; }
+.unit:disabled .no { background: var(--line); color: var(--muted); }
+.progress { font-size: 13px; color: var(--muted); }
+.progress b { color: var(--ink); font-family: var(--font-drug); }
+
+/* 結算 */
+.review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; }
+.review li { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.5; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 4px; }
+.review .mark { font-weight: 900; }
+.review .ok { color: var(--good); } .review .ng { color: var(--bad); }
+.review .drug { font-family: var(--font-drug); font-weight: 700; }
+.review .why { color: var(--muted); }
+.score-big { font-family: var(--font-drug); font-size: 44px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+.score-big small { font-size: 18px; color: var(--muted); }
+.end-note { font-size: 14px; color: var(--muted); max-width: 32ch; line-height: 1.6; margin: 0; }
+
+/* 暫停／離開 */
+.ctl { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 5; }
+.ctl button {
+  font: inherit; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px;
+  padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer;
+  background: color-mix(in srgb, var(--panel) 92%, transparent); color: var(--ink);
+}
+.ctl button svg { width: 12px; height: 12px; fill: currentColor; }
+.ctl button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ctl .exit { color: var(--bad); }
+
+/* 名字 */
+.name-field { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.name-field input, .name-row input {
+  font: inherit; font-size: 16px; font-weight: 700; text-align: center; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; width: min(220px, 100%); box-sizing: border-box;
+  -webkit-user-select: text; user-select: text;
+}
+.name-field input:focus, .name-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.name-row { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.name-row input { flex: 1; min-width: 0; font-size: 15px; padding: 7px 10px; text-align: left; }
+</style>
+
+<div class="game">
+  <div class="hud">
+    <span id="hudUnit">單元 <b>1</b></span>
+    <span>第 <b id="qnum">1 / 10</b> 題</span>
+    <span>分數 <b id="score">0</b></span>
+  </div>
+  <div class="qcard">
+    <span class="tag" id="qtag">10 個單元 · 100 題</span>
+    <span class="q" id="qtext">選好藥籃與單元後，題目會出現在這裡</span>
+  </div>
+  <div class="field" id="field">
+    <canvas id="cv"></canvas>
+
+    <div class="overlay" id="ovStart">
+      <h1>接藥小遊戲</h1>
+      <p>上方出題，藥物會從天上掉下來。移動藥籃，接住<strong>符合題目</strong>的那一顆。</p>
+      <p>每題只能接一顆，接對得 10 分。一個單元 10 題，<strong>拿滿 100 分</strong>才能解鎖下一單元。</p>
+      <label class="name-field" for="nameInput">幫你的藥籃取個名字
+        <input id="nameInput" maxlength="8" placeholder="例如：小明" autocomplete="off">
+      </label>
+      <button class="btn" id="btnStart">選藥籃，開始</button>
+      <span class="keys">滑鼠／手指拖曳，或 ← → 鍵移動</span>
+    </div>
+
+    <div class="overlay scroll" id="ovSetup" hidden>
+      <h2>選擇你的藥籃</h2>
+      <section class="sec">
+        <div class="sec-h"><b>1</b> 款式</div>
+        <div class="styles" id="styleList"></div>
+      </section>
+      <section class="sec">
+        <div class="sec-h"><b>2</b> 顏色</div>
+        <div class="colors" id="colorList"></div>
+      </section>
+      <section class="sec">
+        <div class="sec-h"><b>3</b> 預覽 <span id="previewName"></span></div>
+        <canvas id="preview" aria-label="藥籃預覽"></canvas>
+        <label class="name-row" for="nameSetup">名字 <input id="nameSetup" maxlength="8" placeholder="可不填" autocomplete="off"></label>
+      </section>
+      <button class="btn" id="btnConfirm">確認，選擇單元</button>
+    </div>
+
+    <div class="overlay scroll" id="ovUnits" hidden>
+      <h2>選擇單元</h2>
+      <div class="progress" id="progress"></div>
+      <div class="units" id="unitList"></div>
+    </div>
+
+    <div class="overlay" id="ovFeedback" hidden>
+      <h2 id="fbTitle">答對了！</h2>
+      <div class="explain" id="fbExplain"></div>
+      <button class="btn" id="btnNext">下一題</button>
+      <span class="keys">按空白鍵繼續</span>
+    </div>
+
+    <div class="overlay scroll" id="ovEnd" hidden>
+      <h2 id="endTitle">單元完成</h2>
+      <div class="score-big" id="endScore">0</div>
+      <p class="end-note" id="endNote"></p>
+      <div class="row" id="endBtns"></div>
+      <ul class="review" id="review"></ul>
+    </div>
+
+    <div class="overlay" id="ovPause" hidden>
+      <h2 id="pauseTitle">暫停中</h2>
+      <p id="pauseNote">按「繼續」回到遊戲。</p>
+      <div class="row">
+        <button class="btn" id="btnResume">繼續</button>
+        <button class="btn ghost" id="btnLeave">離開，回單元列表</button>
+      </div>
+    </div>
+
+    <div class="ctl" id="ctl" hidden>
+      <button type="button" id="btnPause" title="暫停（P 或 Esc）"><svg viewBox="0 0 12 12"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg>暫停</button>
+      <button type="button" class="exit" id="btnExit" title="離開這個單元"><svg viewBox="0 0 12 12"><path d="M2.5 1 6 4.5 9.5 1 11 2.5 7.5 6 11 9.5 9.5 11 6 7.5 2.5 11 1 9.5 4.5 6 1 2.5z"/></svg>離開</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// 接藥小遊戲題庫：10 個單元 × 10 題
+// 每題格式：[題目, 正確答案, 正確答案說明, { 干擾選項: "它屬於哪一類" ×4 }]
+window.UNITS = [
+  {
+    name: "交感神經藥物", en: "Adrenergic drugs",
+    qs: [
+      ["下列何者為 α2 致效劑？", "Clonidine", "作用於中樞 α2 受體，降低交感神經輸出，用於高血壓。",
+        { "Prazosin": "α1 阻斷劑", "Propranolol": "非選擇性 β 阻斷劑", "Phenylephrine": "α1 致效劑", "Atropine": "毒蕈鹼受體拮抗劑" }],
+      ["下列何者為選擇性 β1 阻斷劑？", "Metoprolol", "心臟選擇性 β1 阻斷劑，用於高血壓、心絞痛、心衰竭。",
+        { "Propranolol": "非選擇性 β 阻斷劑", "Doxazosin": "α1 阻斷劑", "Salbutamol": "β2 致效劑", "Clonidine": "α2 致效劑" }],
+      ["治療良性攝護腺肥大（BPH）常用的 α1A 阻斷劑是？", "Tamsulosin", "對 α1A 有選擇性，放鬆攝護腺平滑肌，姿勢性低血壓較少。",
+        { "Atenolol": "選擇性 β1 阻斷劑", "Dobutamine": "β1 致效劑", "Methyldopa": "α2 致效劑（前驅藥）", "Finasteride": "5α-還原酶抑制劑" }],
+      ["氣喘急性發作使用的短效 β2 致效劑（SABA）是？", "Salbutamol", "短效 β2 致效劑，擴張支氣管，用於急性發作緩解。",
+        { "Atenolol": "選擇性 β1 阻斷劑", "Phenylephrine": "α1 致效劑", "Labetalol": "α1 + β 阻斷劑", "Ipratropium": "短效抗膽鹼支氣管擴張劑" }],
+      ["下列何者為非選擇性 β 阻斷劑？", "Propranolol", "同時阻斷 β1 與 β2，可用於高血壓、偏頭痛預防、甲亢症狀；氣喘病人應避免。",
+        { "Metoprolol": "選擇性 β1 阻斷劑", "Prazosin": "α1 阻斷劑", "Clonidine": "α2 致效劑", "Isoproterenol": "非選擇性 β 致效劑" }],
+      ["嗜鉻細胞瘤術前使用的不可逆、非選擇性 α 阻斷劑是？", "Phenoxybenzamine", "與 α 受體形成共價鍵，作用不可逆且持久。",
+        { "Phentolamine": "可逆性非選擇性 α 阻斷劑", "Prazosin": "α1 阻斷劑", "Yohimbine": "α2 阻斷劑", "Esmolol": "超短效 β1 阻斷劑" }],
+      ["同時具有 α1 與 β 阻斷作用、用於心衰竭的藥物是？", "Carvedilol", "非選擇性 β 阻斷加上 α1 阻斷，可降低心衰竭死亡率。",
+        { "Atenolol": "選擇性 β1 阻斷劑", "Terazosin": "α1 阻斷劑", "Timolol": "非選擇性 β 阻斷劑（無 α 作用）", "Dobutamine": "β1 致效劑" }],
+      ["用於鼻塞、升壓的選擇性 α1 致效劑是？", "Phenylephrine", "收縮血管，可作鼻黏膜去充血劑或低血壓時升壓。",
+        { "Prazosin": "α1 阻斷劑", "Clonidine": "α2 致效劑", "Salbutamol": "β2 致效劑", "Propranolol": "非選擇性 β 阻斷劑" }],
+      ["過敏性休克（anaphylaxis）的首選藥物是？", "Epinephrine", "α 與 β 受體致效劑：收縮血管升壓、擴張支氣管。",
+        { "Diphenhydramine": "H1 抗組織胺（僅輔助）", "Prazosin": "α1 阻斷劑", "Atenolol": "選擇性 β1 阻斷劑", "Clonidine": "α2 致效劑" }],
+      ["心因性休克時用來增強心肌收縮的 β1 致效劑是？", "Dobutamine", "主要作用於 β1，增加心輸出量，對心率影響較小。",
+        { "Salbutamol": "β2 致效劑", "Phenylephrine": "α1 致效劑", "Metoprolol": "選擇性 β1 阻斷劑", "Clonidine": "α2 致效劑" }]
+    ]
+  },
+  {
+    name: "膽鹼與神經肌肉藥物", en: "Cholinergic & NMJ",
+    qs: [
+      ["下列何者為毒蕈鹼受體拮抗劑？", "Atropine", "競爭性阻斷 M 受體，用於心搏過緩、有機磷中毒。",
+        { "Pilocarpine": "毒蕈鹼受體致效劑", "Neostigmine": "乙醯膽鹼酯酶抑制劑", "Bethanechol": "毒蕈鹼受體致效劑", "Succinylcholine": "去極化型神經肌肉阻斷劑" }],
+      ["治療重症肌無力的乙醯膽鹼酯酶抑制劑是？", "Pyridostigmine", "可逆性 AChE 抑制劑，增加神經肌肉接合處的 ACh。",
+        { "Atropine": "毒蕈鹼受體拮抗劑", "Pilocarpine": "毒蕈鹼受體致效劑", "Pralidoxime": "AChE 再活化劑", "Tubocurarine": "非去極化型神經肌肉阻斷劑" }],
+      ["下列何者為非去極化型神經肌肉阻斷劑？", "Rocuronium", "競爭性阻斷 Nm 受體，可用 sugammadex 逆轉。",
+        { "Succinylcholine": "去極化型神經肌肉阻斷劑", "Neostigmine": "乙醯膽鹼酯酶抑制劑", "Dantrolene": "抑制肌漿網鈣離子釋放", "Baclofen": "GABA-B 致效劑" }],
+      ["去極化型神經肌肉阻斷劑、可能誘發惡性高熱的是？", "Succinylcholine", "持續活化 Nm 受體造成去極化阻斷，作用快、時間短。",
+        { "Rocuronium": "非去極化型神經肌肉阻斷劑", "Neostigmine": "乙醯膽鹼酯酶抑制劑", "Atropine": "毒蕈鹼受體拮抗劑", "Pilocarpine": "毒蕈鹼受體致效劑" }],
+      ["治療青光眼、會使瞳孔縮小的 M 致效劑是？", "Pilocarpine", "收縮睫狀肌與瞳孔括約肌，促進房水流出。",
+        { "Atropine": "M 拮抗劑（散瞳）", "Tropicamide": "M 拮抗劑（散瞳檢查用）", "Timolol": "β 阻斷劑（減少房水生成）", "Latanoprost": "PGF2α 類似物" }],
+      ["術後尿液滯留可使用的 M 致效劑是？", "Bethanechol", "選擇性作用於 M 受體，收縮膀胱逼尿肌。",
+        { "Oxybutynin": "M 拮抗劑（膀胱過動症）", "Atropine": "毒蕈鹼受體拮抗劑", "Tiotropium": "長效吸入型 M 拮抗劑", "Succinylcholine": "去極化型神經肌肉阻斷劑" }],
+      ["有機磷中毒時用來再活化 AChE 的是？", "Pralidoxime", "在 AChE 老化前移除磷酸基，使酵素恢復活性。",
+        { "Physostigmine": "可逆性 AChE 抑制劑", "Neostigmine": "可逆性 AChE 抑制劑", "Edrophonium": "超短效 AChE 抑制劑（診斷用）", "Succinylcholine": "去極化型神經肌肉阻斷劑" }],
+      ["治療阿茲海默症的中樞 AChE 抑制劑是？", "Donepezil", "可進入中樞，增加腦內 ACh。",
+        { "Memantine": "NMDA 受體拮抗劑", "Neostigmine": "四級胺 AChE 抑制劑（不入腦）", "Scopolamine": "M 拮抗劑（暈車）", "Benztropine": "中樞 M 拮抗劑（巴金森）" }],
+      ["COPD 使用的長效吸入型 M 拮抗劑（LAMA）是？", "Tiotropium", "長效阻斷支氣管 M3 受體，每日一次。",
+        { "Ipratropium": "短效吸入型 M 拮抗劑（SAMA）", "Salmeterol": "長效 β2 致效劑（LABA）", "Pilocarpine": "毒蕈鹼受體致效劑", "Theophylline": "磷酸二酯酶抑制劑" }],
+      ["能包覆 rocuronium、逆轉肌肉鬆弛的藥物是？", "Sugammadex", "修飾型 γ-環糊精，直接包覆 rocuronium／vecuronium。",
+        { "Dantrolene": "抑制肌漿網鈣離子釋放", "Succinylcholine": "去極化型神經肌肉阻斷劑", "Glycopyrrolate": "四級胺 M 拮抗劑", "Baclofen": "GABA-B 致效劑" }]
+    ]
+  },
+  {
+    name: "降血壓藥物", en: "Antihypertensives",
+    qs: [
+      ["下列何者為 ACE 抑制劑？", "Captopril", "抑制 angiotensin I 轉換成 angiotensin II。",
+        { "Losartan": "ARB", "Amlodipine": "DHP 類鈣離子阻斷劑", "Aliskiren": "直接腎素抑制劑", "Hydralazine": "直接血管擴張劑" }],
+      ["下列何者為血管張力素受體阻斷劑（ARB）？", "Losartan", "阻斷 AT1 受體，較少乾咳。",
+        { "Enalapril": "ACE 抑制劑", "Spironolactone": "醛固酮受體拮抗劑", "Diltiazem": "非 DHP 類鈣離子阻斷劑", "Clonidine": "α2 致效劑" }],
+      ["下列何者為直接腎素抑制劑？", "Aliskiren", "直接抑制 renin，減少 angiotensin I 生成。",
+        { "Valsartan": "ARB", "Lisinopril": "ACE 抑制劑", "Nifedipine": "DHP 類鈣離子阻斷劑", "Minoxidil": "K⁺ 通道開啟劑" }],
+      ["下列何者為 DHP 類鈣離子阻斷劑？", "Amlodipine", "主要擴張小動脈，常見副作用為踝部水腫。",
+        { "Verapamil": "非 DHP 類鈣離子阻斷劑", "Captopril": "ACE 抑制劑", "Hydralazine": "直接血管擴張劑", "Atenolol": "選擇性 β1 阻斷劑" }],
+      ["可降低心跳速率的非 DHP 類鈣離子阻斷劑是？", "Verapamil", "作用於心臟為主，減慢 AV 傳導，可用於心律不整。",
+        { "Nifedipine": "DHP 類鈣離子阻斷劑", "Losartan": "ARB", "Prazosin": "α1 阻斷劑", "Hydrochlorothiazide": "Thiazide 利尿劑" }],
+      ["因緩激肽（bradykinin）累積而引起乾咳的降壓藥是？", "Enalapril", "ACE 抑制劑同時抑制 bradykinin 分解，造成乾咳。",
+        { "Valsartan": "ARB（少乾咳）", "Amlodipine": "DHP 類 CCB（踝部水腫）", "Hydralazine": "直接血管擴張劑（類狼瘡）", "Minoxidil": "K⁺ 通道開啟劑（多毛）" }],
+      ["可能引起類紅斑性狼瘡症候群的直接血管擴張劑是？", "Hydralazine", "直接擴張小動脈，慢乙醯化者較易發生類狼瘡。",
+        { "Minoxidil": "K⁺ 通道開啟劑", "Nitroprusside": "NO 供體", "Captopril": "ACE 抑制劑", "Amlodipine": "DHP 類鈣離子阻斷劑" }],
+      ["開啟 K⁺ 通道、副作用為多毛的降壓藥是？", "Minoxidil", "使血管平滑肌過極化而擴張，外用可治落髮。",
+        { "Hydralazine": "直接血管擴張劑（類狼瘡）", "Losartan": "ARB", "Nifedipine": "DHP 類鈣離子阻斷劑", "Methyldopa": "α2 致效劑（前驅藥）" }],
+      ["高血壓急症靜脈注射、可能造成氰化物中毒的是？", "Nitroprusside", "釋放 NO 擴張動靜脈，代謝產生氰化物。",
+        { "Minoxidil": "K⁺ 通道開啟劑", "Captopril": "ACE 抑制劑", "Labetalol": "α1 + β 阻斷劑", "Amlodipine": "DHP 類鈣離子阻斷劑" }],
+      ["妊娠高血壓常用的中樞 α2 致效劑是？", "Methyldopa", "代謝為 α-methylnorepinephrine，作用於中樞 α2，懷孕使用安全性高。",
+        { "Captopril": "ACE 抑制劑（孕婦禁用）", "Losartan": "ARB（孕婦禁用）", "Aliskiren": "直接腎素抑制劑（孕婦禁用）", "Spironolactone": "醛固酮受體拮抗劑" }]
+    ]
+  },
+  {
+    name: "利尿劑", en: "Diuretics",
+    qs: [
+      ["下列何者為環利尿劑（loop diuretic）？", "Furosemide", "抑制亨利氏環上行支的 Na⁺-K⁺-2Cl⁻ 共同運輸體。",
+        { "Hydrochlorothiazide": "Thiazide 利尿劑", "Spironolactone": "醛固酮受體拮抗劑", "Acetazolamide": "碳酸酐酶抑制劑", "Mannitol": "滲透性利尿劑" }],
+      ["下列何者為 thiazide 類利尿劑？", "Hydrochlorothiazide", "抑制遠曲小管 Na⁺-Cl⁻ 共同運輸體，會減少尿鈣排出。",
+        { "Furosemide": "環利尿劑", "Amiloride": "ENaC 阻斷劑（保鉀）", "Mannitol": "滲透性利尿劑", "Acetazolamide": "碳酸酐酶抑制劑" }],
+      ["下列何者為醛固酮受體拮抗劑？", "Spironolactone", "保鉀利尿劑，可能引起男性女乳症。",
+        { "Furosemide": "環利尿劑", "Hydrochlorothiazide": "Thiazide 利尿劑", "Triamterene": "ENaC 阻斷劑", "Acetazolamide": "碳酸酐酶抑制劑" }],
+      ["用於青光眼與高山症的碳酸酐酶抑制劑是？", "Acetazolamide", "抑制近曲小管碳酸酐酶，減少 HCO₃⁻ 再吸收。",
+        { "Mannitol": "滲透性利尿劑", "Bumetanide": "環利尿劑", "Eplerenone": "選擇性醛固酮受體拮抗劑", "Indapamide": "類 thiazide 利尿劑" }],
+      ["用於降低顱內壓的滲透性利尿劑是？", "Mannitol", "不被再吸收，提高腎小管滲透壓，把水留在管腔中。",
+        { "Furosemide": "環利尿劑", "Spironolactone": "醛固酮受體拮抗劑", "Acetazolamide": "碳酸酐酶抑制劑", "Chlorthalidone": "類 thiazide 利尿劑" }],
+      ["直接阻斷集尿管 ENaC 的保鉀利尿劑是？", "Amiloride", "阻斷上皮鈉通道，減少 K⁺ 分泌。",
+        { "Spironolactone": "醛固酮受體拮抗劑", "Furosemide": "環利尿劑", "Hydrochlorothiazide": "Thiazide 利尿劑", "Mannitol": "滲透性利尿劑" }],
+      ["選擇性醛固酮拮抗劑、較少男性女乳副作用的是？", "Eplerenone", "對醛固酮受體選擇性高，對雄性素、黃體素受體影響小。",
+        { "Spironolactone": "非選擇性醛固酮拮抗劑（易女乳）", "Furosemide": "環利尿劑", "Amiloride": "ENaC 阻斷劑", "Acetazolamide": "碳酸酐酶抑制劑" }],
+      ["對磺胺類過敏者可使用的環利尿劑是？", "Ethacrynic acid", "唯一不含磺胺結構的環利尿劑，耳毒性較高。",
+        { "Furosemide": "含磺胺的環利尿劑", "Hydrochlorothiazide": "含磺胺的 thiazide", "Acetazolamide": "含磺胺的碳酸酐酶抑制劑", "Spironolactone": "醛固酮受體拮抗劑" }],
+      ["下列何者屬於類 thiazide（thiazide-like）利尿劑？", "Indapamide", "作用與 thiazide 相似，作用時間長。",
+        { "Furosemide": "環利尿劑", "Triamterene": "ENaC 阻斷劑", "Mannitol": "滲透性利尿劑", "Acetazolamide": "碳酸酐酶抑制劑" }],
+      ["下列何者為保鉀利尿劑？", "Triamterene", "阻斷集尿管 ENaC，減少 K⁺ 流失，常與 thiazide 併用。",
+        { "Furosemide": "環利尿劑（排鉀）", "Hydrochlorothiazide": "Thiazide（排鉀）", "Acetazolamide": "碳酸酐酶抑制劑（排鉀）", "Indapamide": "類 thiazide（排鉀）" }]
+    ]
+  },
+  {
+    name: "抗凝血與抗血小板", en: "Anticoagulants & antiplatelets",
+    qs: [
+      ["下列何者為維生素 K 拮抗劑？", "Warfarin", "抑制 VKOR，減少凝血因子 II、VII、IX、X 生成，需監測 INR。",
+        { "Heparin": "增強 antithrombin 活性", "Clopidogrel": "P2Y12 阻斷劑", "Aspirin": "COX 抑制劑", "Rivaroxaban": "直接 Xa 因子抑制劑" }],
+      ["下列何者為口服直接 Xa 因子抑制劑？", "Rivaroxaban", "直接抑制 Xa 因子，不需常規監測 INR。",
+        { "Dabigatran": "直接凝血酶抑制劑", "Warfarin": "維生素 K 拮抗劑", "Clopidogrel": "P2Y12 阻斷劑", "Alteplase": "血栓溶解劑（tPA）" }],
+      ["下列何者為口服直接凝血酶抑制劑？", "Dabigatran", "直接抑制 thrombin（IIa），解毒劑為 idarucizumab。",
+        { "Apixaban": "直接 Xa 因子抑制劑", "Enoxaparin": "低分子量肝素", "Ticagrelor": "可逆性 P2Y12 阻斷劑", "Tranexamic acid": "抗纖維蛋白溶解劑" }],
+      ["不可逆阻斷 P2Y12 受體的前驅藥是？", "Clopidogrel", "經 CYP2C19 活化，不可逆阻斷血小板 ADP 受體。",
+        { "Aspirin": "COX 抑制劑", "Warfarin": "維生素 K 拮抗劑", "Cilostazol": "PDE3 抑制劑", "Abciximab": "GP IIb/IIIa 拮抗劑" }],
+      ["不可逆抑制 COX-1、減少 TXA2 生成的抗血小板藥是？", "Aspirin", "乙醯化 COX-1，效果維持血小板一生（約 7–10 天）。",
+        { "Clopidogrel": "P2Y12 阻斷劑", "Dipyridamole": "抑制腺苷再回收／PDE", "Heparin": "增強 antithrombin 活性", "Warfarin": "維生素 K 拮抗劑" }],
+      ["下列何者為低分子量肝素（LMWH）？", "Enoxaparin", "主要抑制 Xa 因子，皮下注射，較少 HIT。",
+        { "Heparin": "未分化肝素", "Warfarin": "維生素 K 拮抗劑", "Dabigatran": "直接凝血酶抑制劑", "Alteplase": "血栓溶解劑（tPA）" }],
+      ["肝素（heparin）過量的解毒劑是？", "Protamine", "帶正電的蛋白質，與帶負電的 heparin 結合使其失效。",
+        { "Phytonadione": "維生素 K1（warfarin 解毒）", "Idarucizumab": "dabigatran 解毒劑", "Tranexamic acid": "抗纖維蛋白溶解劑", "Andexanet alfa": "Xa 抑制劑解毒劑" }],
+      ["Warfarin 過量的解毒劑是？", "Phytonadione", "即維生素 K1，恢復凝血因子合成。",
+        { "Protamine": "heparin 解毒劑", "Idarucizumab": "dabigatran 解毒劑", "Flumazenil": "苯二氮平類解毒劑", "Naloxone": "鴉片類解毒劑" }],
+      ["急性缺血性中風使用的血栓溶解劑是？", "Alteplase", "重組 tPA，把 plasminogen 轉為 plasmin 分解纖維蛋白。",
+        { "Tranexamic acid": "抗纖維蛋白溶解劑", "Heparin": "未分化肝素", "Clopidogrel": "P2Y12 阻斷劑", "Warfarin": "維生素 K 拮抗劑" }],
+      ["下列何者為 GP IIb/IIIa 拮抗劑？", "Tirofiban", "阻斷纖維蛋白原與血小板 GP IIb/IIIa 結合，靜脈注射。",
+        { "Ticagrelor": "可逆性 P2Y12 阻斷劑", "Aspirin": "COX 抑制劑", "Cilostazol": "PDE3 抑制劑", "Apixaban": "直接 Xa 因子抑制劑" }]
+    ]
+  },
+  {
+    name: "降血糖藥物", en: "Antidiabetics",
+    qs: [
+      ["第二型糖尿病第一線的雙胍類藥物是？", "Metformin", "減少肝臟糖質新生，不易低血糖，注意乳酸中毒。",
+        { "Glimepiride": "Sulfonylurea", "Pioglitazone": "TZD（PPAR-γ 致效劑）", "Sitagliptin": "DPP-4 抑制劑", "Acarbose": "α-葡萄糖苷酶抑制劑" }],
+      ["下列何者為 sulfonylurea 類？", "Glimepiride", "關閉 β 細胞 ATP 敏感性 K⁺ 通道促進胰島素分泌，易低血糖。",
+        { "Metformin": "雙胍類", "Repaglinide": "Meglitinide 類", "Dapagliflozin": "SGLT2 抑制劑", "Pioglitazone": "TZD" }],
+      ["下列何者為 DPP-4 抑制劑？", "Sitagliptin", "減少 GLP-1 分解，增加餐後胰島素分泌。",
+        { "Liraglutide": "GLP-1 受體致效劑", "Empagliflozin": "SGLT2 抑制劑", "Gliclazide": "Sulfonylurea", "Acarbose": "α-葡萄糖苷酶抑制劑" }],
+      ["下列何者為 SGLT2 抑制劑？", "Empagliflozin", "抑制近曲小管葡萄糖再吸收，具心腎保護，注意泌尿生殖道感染。",
+        { "Sitagliptin": "DPP-4 抑制劑", "Metformin": "雙胍類", "Pioglitazone": "TZD", "Glipizide": "Sulfonylurea" }],
+      ["下列何者為注射型 GLP-1 受體致效劑？", "Liraglutide", "促進葡萄糖依賴性胰島素分泌、延緩胃排空、降低食慾。",
+        { "Linagliptin": "DPP-4 抑制劑", "Insulin glargine": "長效胰島素", "Dapagliflozin": "SGLT2 抑制劑", "Metformin": "雙胍類" }],
+      ["下列何者為 PPAR-γ 致效劑（TZD）？", "Pioglitazone", "增加周邊組織胰島素敏感性，注意水腫與心衰竭。",
+        { "Metformin": "雙胍類", "Acarbose": "α-葡萄糖苷酶抑制劑", "Sitagliptin": "DPP-4 抑制劑", "Glyburide": "Sulfonylurea" }],
+      ["下列何者為 α-葡萄糖苷酶抑制劑？", "Acarbose", "延緩腸道碳水化合物分解吸收，降低餐後血糖，常見脹氣。",
+        { "Metformin": "雙胍類", "Repaglinide": "Meglitinide 類", "Canagliflozin": "SGLT2 抑制劑", "Pioglitazone": "TZD" }],
+      ["餐前服用的短效促胰島素分泌劑（meglitinide）是？", "Repaglinide", "作用類似 SU 但起效快、時間短，隨餐服用。",
+        { "Glimepiride": "Sulfonylurea", "Vildagliptin": "DPP-4 抑制劑", "Acarbose": "α-葡萄糖苷酶抑制劑", "Dapagliflozin": "SGLT2 抑制劑" }],
+      ["下列何者為長效基礎胰島素？", "Insulin glargine", "皮下形成微沉澱緩慢釋放，約 24 小時無明顯高峰。",
+        { "Insulin lispro": "速效胰島素", "Regular insulin": "短效胰島素", "Liraglutide": "GLP-1 受體致效劑", "Metformin": "雙胍類" }],
+      ["餐前注射的速效胰島素是？", "Insulin aspart", "約 10–20 分鐘起效，控制餐後血糖。",
+        { "Insulin detemir": "長效胰島素", "NPH insulin": "中效胰島素", "Semaglutide": "GLP-1 受體致效劑", "Glipizide": "Sulfonylurea" }]
+    ]
+  },
+  {
+    name: "抗生素", en: "Antibiotics",
+    qs: [
+      ["下列何者屬於 β-lactam 類的青黴素？", "Amoxicillin", "抑制細胞壁合成（PBP），可被 β-lactamase 破壞。",
+        { "Vancomycin": "醣肽類", "Azithromycin": "Macrolide", "Ciprofloxacin": "Fluoroquinolone", "Doxycycline": "Tetracycline" }],
+      ["治療 MRSA 感染的醣肽類抗生素是？", "Vancomycin", "結合 D-Ala-D-Ala 抑制細胞壁合成，注意紅人症與腎毒性。",
+        { "Ceftriaxone": "第三代頭孢菌素", "Gentamicin": "Aminoglycoside", "Clarithromycin": "Macrolide", "Metronidazole": "Nitroimidazole" }],
+      ["具耳毒性與腎毒性、作用於 30S 的 aminoglycoside 是？", "Gentamicin", "結合 30S 次單元抑制蛋白質合成，殺菌性。",
+        { "Erythromycin": "Macrolide（50S）", "Tetracycline": "Tetracycline（30S）", "Levofloxacin": "Fluoroquinolone", "Cefazolin": "第一代頭孢菌素" }],
+      ["下列何者為 macrolide 類抗生素？", "Azithromycin", "結合 50S 次單元抑制蛋白質合成，半衰期長。",
+        { "Clindamycin": "Lincosamide", "Gentamicin": "Aminoglycoside", "Doxycycline": "Tetracycline", "Ceftriaxone": "第三代頭孢菌素" }],
+      ["抑制 DNA gyrase 的 fluoroquinolone 是？", "Ciprofloxacin", "抑制 DNA gyrase／topoisomerase IV，注意肌腱炎。",
+        { "Sulfamethoxazole": "磺胺類（葉酸合成）", "Amikacin": "Aminoglycoside", "Linezolid": "Oxazolidinone", "Cefepime": "第四代頭孢菌素" }],
+      ["可能造成兒童牙齒染色的四環素類是？", "Doxycycline", "結合 30S 次單元，會與鈣螯合，8 歲以下避免使用。",
+        { "Azithromycin": "Macrolide", "Vancomycin": "醣肽類", "Levofloxacin": "Fluoroquinolone", "Penicillin G": "天然青黴素" }],
+      ["下列何者為第三代頭孢菌素？", "Ceftriaxone", "對革蘭氏陰性菌活性強，可穿透 BBB 治療腦膜炎。",
+        { "Cefazolin": "第一代頭孢菌素", "Cefepime": "第四代頭孢菌素", "Cefuroxime": "第二代頭孢菌素", "Meropenem": "Carbapenem" }],
+      ["與 trimethoprim 合用、抑制葉酸合成的是？", "Sulfamethoxazole", "抑制 dihydropteroate synthase，與 TMP 有協同作用。",
+        { "Ciprofloxacin": "Fluoroquinolone", "Rifampin": "抑制 RNA 聚合酶", "Metronidazole": "Nitroimidazole", "Clindamycin": "Lincosamide" }],
+      ["用於厭氧菌、併用酒精會有雙硫崙樣反應的是？", "Metronidazole", "還原後破壞 DNA，對厭氧菌與原蟲有效，服藥期間禁酒。",
+        { "Ceftriaxone": "第三代頭孢菌素", "Gentamicin": "Aminoglycoside", "Erythromycin": "Macrolide", "Nitrofurantoin": "泌尿道抗菌劑" }],
+      ["下列何者為 carbapenem 類？", "Meropenem", "抗菌譜極廣的 β-lactam，對多數 β-lactamase 穩定。",
+        { "Aztreonam": "Monobactam", "Cefepime": "第四代頭孢菌素", "Piperacillin": "廣效青黴素", "Colistin": "多黏菌素" }]
+    ]
+  },
+  {
+    name: "抗憂鬱與抗精神病", en: "Antidepressants & antipsychotics",
+    qs: [
+      ["下列何者為 SSRI？", "Fluoxetine", "選擇性抑制血清素回收，半衰期長。",
+        { "Amitriptyline": "三環抗憂鬱劑（TCA）", "Venlafaxine": "SNRI", "Phenelzine": "MAOI", "Bupropion": "NDRI" }],
+      ["下列何者為三環抗憂鬱劑（TCA）？", "Amitriptyline", "抑制 NE 與 5-HT 回收，抗膽鹼副作用多，過量有心毒性。",
+        { "Sertraline": "SSRI", "Duloxetine": "SNRI", "Mirtazapine": "NaSSA", "Haloperidol": "典型抗精神病藥" }],
+      ["下列何者為 SNRI？", "Venlafaxine", "抑制血清素與正腎上腺素回收，高劑量可能升血壓。",
+        { "Paroxetine": "SSRI", "Imipramine": "TCA", "Trazodone": "SARI", "Lithium": "情緒穩定劑" }],
+      ["服藥期間需避免含 tyramine 食物的抗憂鬱劑是？", "Phenelzine", "非選擇性 MAO 抑制劑，與 tyramine 併用可能高血壓危象。",
+        { "Escitalopram": "SSRI", "Nortriptyline": "TCA", "Bupropion": "NDRI", "Quetiapine": "非典型抗精神病藥" }],
+      ["可用於戒菸的 NDRI 抗憂鬱劑是？", "Bupropion", "抑制 NE 與 DA 回收，較少性功能副作用，但會降低癲癇閾值。",
+        { "Varenicline": "尼古丁受體部分致效劑（非抗憂鬱劑）", "Fluoxetine": "SSRI", "Mirtazapine": "NaSSA", "Clomipramine": "TCA" }],
+      ["下列何者為典型（第一代）抗精神病藥？", "Haloperidol", "強效阻斷 D2，錐體外症狀明顯。",
+        { "Clozapine": "非典型抗精神病藥", "Risperidone": "非典型抗精神病藥", "Lithium": "情緒穩定劑", "Diazepam": "苯二氮平類" }],
+      ["可能引起顆粒性白血球缺乏、需監測血球的抗精神病藥是？", "Clozapine", "非典型抗精神病藥，用於頑固型思覺失調症。",
+        { "Haloperidol": "典型抗精神病藥", "Chlorpromazine": "典型抗精神病藥", "Lithium": "情緒穩定劑", "Sertraline": "SSRI" }],
+      ["治療指數狹窄、需監測血中濃度的情緒穩定劑是？", "Lithium", "用於雙極性疾患，脫水或併用利尿劑易中毒。",
+        { "Haloperidol": "典型抗精神病藥", "Fluoxetine": "SSRI", "Zolpidem": "非苯二氮平類安眠藥", "Buspirone": "5-HT1A 部分致效劑" }],
+      ["屬於 D2 部分致效劑的非典型抗精神病藥是？", "Aripiprazole", "D2 部分致效、5-HT1A 部分致效，代謝副作用較少。",
+        { "Haloperidol": "典型 D2 拮抗劑", "Olanzapine": "D2／5-HT2A 拮抗劑", "Imipramine": "TCA", "Lorazepam": "苯二氮平類" }],
+      ["阻斷 α2 受體、具鎮靜與增加食慾作用的抗憂鬱劑是？", "Mirtazapine", "NaSSA：阻斷突觸前 α2，增加 NE 與 5-HT 釋放。",
+        { "Trazodone": "SARI", "Citalopram": "SSRI", "Desipramine": "TCA", "Selegiline": "MAO-B 抑制劑" }]
+    ]
+  },
+  {
+    name: "鎮痛與抗發炎", en: "Analgesics & anti-inflammatories",
+    qs: [
+      ["下列何者為非選擇性 NSAID？", "Ibuprofen", "同時抑制 COX-1 與 COX-2，注意腸胃道副作用。",
+        { "Celecoxib": "COX-2 選擇性抑制劑", "Acetaminophen": "解熱鎮痛劑（抗發炎弱）", "Morphine": "μ 鴉片受體致效劑", "Prednisolone": "類固醇" }],
+      ["下列何者為 COX-2 選擇性抑制劑？", "Celecoxib", "腸胃副作用較少，但心血管風險需注意。",
+        { "Naproxen": "非選擇性 NSAID", "Aspirin": "不可逆 COX 抑制劑", "Tramadol": "弱 μ 致效劑", "Colchicine": "微管抑制劑" }],
+      ["過量會造成肝毒性、解毒劑為 N-acetylcysteine 的是？", "Acetaminophen", "過量時代謝物 NAPQI 耗盡 glutathione 而傷肝。",
+        { "Ibuprofen": "非選擇性 NSAID", "Morphine": "μ 鴉片受體致效劑", "Naloxone": "鴉片受體拮抗劑", "Celecoxib": "COX-2 選擇性抑制劑" }],
+      ["下列何者為強效 μ 鴉片受體致效劑？", "Morphine", "強效鎮痛，副作用包括呼吸抑制、便秘、縮瞳。",
+        { "Naloxone": "鴉片受體拮抗劑", "Buprenorphine": "μ 部分致效劑", "Ibuprofen": "非選擇性 NSAID", "Gabapentin": "α2δ 配體" }],
+      ["鴉片類藥物過量的解毒劑是？", "Naloxone", "競爭性鴉片受體拮抗劑，作用時間短，可能需重複給藥。",
+        { "Flumazenil": "苯二氮平類拮抗劑", "Methadone": "長效 μ 致效劑", "Atropine": "毒蕈鹼受體拮抗劑", "N-acetylcysteine": "acetaminophen 解毒劑" }],
+      ["舌下用於鴉片類成癮治療的 μ 部分致效劑是？", "Buprenorphine", "高親和力 μ 部分致效劑，呼吸抑制有天花板效應。",
+        { "Methadone": "μ 完全致效劑", "Naltrexone": "鴉片受體拮抗劑", "Fentanyl": "強效 μ 完全致效劑", "Tramadol": "弱 μ 致效劑 + SNRI" }],
+      ["弱 μ 致效並抑制 5-HT／NE 回收的鎮痛藥是？", "Tramadol", "雙重機轉止痛，可能降低癲癇閾值、引起血清素症候群。",
+        { "Codeine": "前驅藥（經 CYP2D6 轉為 morphine）", "Fentanyl": "強效 μ 完全致效劑", "Celecoxib": "COX-2 選擇性抑制劑", "Naloxone": "鴉片受體拮抗劑" }],
+      ["可製成穿皮貼片的強效鴉片類藥物是？", "Fentanyl", "脂溶性高，效價約為 morphine 的 50–100 倍。",
+        { "Codeine": "弱效鴉片類前驅藥", "Naloxone": "鴉片受體拮抗劑", "Ibuprofen": "非選擇性 NSAID", "Pregabalin": "α2δ 配體" }],
+      ["痛風急性發作時使用的微管抑制劑是？", "Colchicine", "抑制微管聚合，減少嗜中性球趨化，常見腹瀉。",
+        { "Allopurinol": "黃嘌呤氧化酶抑制劑（預防用）", "Probenecid": "促尿酸排泄劑", "Febuxostat": "黃嘌呤氧化酶抑制劑", "Acetaminophen": "解熱鎮痛劑" }],
+      ["降低尿酸生成的黃嘌呤氧化酶抑制劑是？", "Allopurinol", "抑制 xanthine oxidase，HLA-B*5801 帶因者易發生嚴重皮膚過敏。",
+        { "Colchicine": "微管抑制劑", "Probenecid": "促尿酸排泄劑", "Rasburicase": "尿酸氧化酶", "Indomethacin": "非選擇性 NSAID" }]
+    ]
+  },
+  {
+    name: "腸胃道藥物", en: "GI drugs",
+    qs: [
+      ["下列何者為質子幫浦抑制劑（PPI）？", "Omeprazole", "不可逆抑制壁細胞 H⁺/K⁺-ATPase，餐前服用。",
+        { "Famotidine": "H2 受體阻斷劑", "Sucralfate": "黏膜保護劑", "Misoprostol": "PGE1 類似物", "Metoclopramide": "D2 拮抗促動劑" }],
+      ["下列何者為 H2 受體阻斷劑？", "Famotidine", "阻斷壁細胞 H2 受體，減少胃酸分泌。",
+        { "Pantoprazole": "質子幫浦抑制劑", "Diphenhydramine": "H1 抗組織胺", "Ondansetron": "5-HT3 拮抗劑", "Loperamide": "周邊 μ 致效止瀉劑" }],
+      ["化療止吐常用的 5-HT3 拮抗劑是？", "Ondansetron", "阻斷化學受體觸發區與迷走神經的 5-HT3 受體，注意 QT 延長。",
+        { "Metoclopramide": "D2 拮抗促動劑", "Aprepitant": "NK1 拮抗劑", "Domperidone": "周邊 D2 拮抗劑", "Esomeprazole": "質子幫浦抑制劑" }],
+      ["用於延遲性化療嘔吐的 NK1 拮抗劑是？", "Aprepitant", "阻斷 substance P 的 NK1 受體，常與 5-HT3 拮抗劑併用。",
+        { "Ondansetron": "5-HT3 拮抗劑", "Lansoprazole": "質子幫浦抑制劑", "Bisacodyl": "刺激性瀉劑", "Famotidine": "H2 受體阻斷劑" }],
+      ["預防 NSAID 潰瘍、孕婦禁用的 PGE1 類似物是？", "Misoprostol", "減少胃酸並增加黏液分泌，會引起子宮收縮。",
+        { "Sucralfate": "黏膜保護劑", "Omeprazole": "質子幫浦抑制劑", "Nizatidine": "H2 受體阻斷劑", "Loperamide": "周邊 μ 致效止瀉劑" }],
+      ["作用於腸道 μ 受體的止瀉劑是？", "Loperamide", "不易進入中樞，減少腸蠕動。",
+        { "Lactulose": "滲透性瀉劑", "Bisacodyl": "刺激性瀉劑", "Metoclopramide": "D2 拮抗促動劑", "Ondansetron": "5-HT3 拮抗劑" }],
+      ["滲透性瀉劑、也用於肝性腦病變的是？", "Lactulose", "在結腸被細菌分解酸化腸道，減少氨吸收。",
+        { "Loperamide": "周邊 μ 致效止瀉劑", "Bisacodyl": "刺激性瀉劑", "Docusate": "糞便軟化劑", "Psyllium": "容積性瀉劑" }],
+      ["下列何者為刺激性瀉劑？", "Bisacodyl", "刺激腸道神經叢增加蠕動，長期使用可能依賴。",
+        { "Lactulose": "滲透性瀉劑", "Psyllium": "容積性瀉劑", "Docusate": "糞便軟化劑", "Loperamide": "周邊 μ 致效止瀉劑" }],
+      ["可進入中樞、可能引起錐體外症狀的促腸胃蠕動劑是？", "Metoclopramide", "D2 拮抗促進胃排空並止吐，長期使用有遲發性運動障礙風險。",
+        { "Domperidone": "周邊 D2 拮抗劑（不易入腦）", "Ondansetron": "5-HT3 拮抗劑", "Famotidine": "H2 受體阻斷劑", "Lactulose": "滲透性瀉劑" }],
+      ["在酸性環境形成保護層覆蓋潰瘍的黏膜保護劑是？", "Sucralfate", "在胃酸中聚合成黏稠物附著於潰瘍面，會影響其他藥物吸收。",
+        { "Misoprostol": "PGE1 類似物", "Omeprazole": "質子幫浦抑制劑", "Famotidine": "H2 受體阻斷劑", "Aluminum hydroxide": "制酸劑" }]
+    ]
+  }
+];
+</script>
+<script>
+const UNITS = window.UNITS;
+
+// ---------- 畫布設定 ----------
+const W = 360, H = 480;
+const BW = 96, BY = H - 58;
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+function resize() {
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+}
+new ResizeObserver(resize).observe(cv);
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+const CAPSULES = [
+  ["#e76f51", "#f4a261"], ["#2a9d8f", "#8ad3c7"], ["#457b9d", "#a8dadc"],
+  ["#9b5de5", "#cdb4f7"], ["#e9c46a", "#f6e3a8"], ["#d1495b", "#f2a7b1"]
+];
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+
+// ---------- 進度（每個單元的最高分） ----------
+let BEST = load("drugCatchBest");
+if (!Array.isArray(BEST) || BEST.length !== UNITS.length) BEST = UNITS.map(() => null);
+const unlocked = i => i === 0 || BEST[i - 1] === 100;
+
+// ---------- 遊戲狀態 ----------
+let S = null;
+function startUnit(u) {
+  SEL = u;
+  S = {
+    unit: u, order: shuffle(UNITS[u].qs.map((_, i) => i)), qi: 0, score: 0,
+    items: [], queue: [], spawnT: 0.4, basketX: S ? S.basketX : W / 2, targetX: S ? S.targetX : W / 2,
+    mode: "play", particles: [], log: [], colorI: 0
+  };
+  hideAll();
+  buildQueue(); updateHud(); updateCtl();
+}
+const curQ = () => {
+  const [q, a, why, wrong] = UNITS[S.unit].qs[S.order[S.qi]];
+  return { q, a, why, wrong };
+};
+function buildQueue() {
+  // 正確答案放在第 2 或第 3 顆掉下來，每題只掉一輪
+  const q = curQ();
+  const d = shuffle(Object.keys(q.wrong));
+  d.splice(1 + (Math.random() * 2 | 0), 0, q.a);
+  S.queue = d;
+  S.items = []; S.spawnT = 0.4;
+}
+const speed = () => 88 + S.unit * 4 + S.qi * 2;
+const gap = () => 2.0 - S.unit * 0.03 - S.qi * 0.015;
+const FORMS = ["capsule", "tablet", "powder"];
+const TABLETS = [["#f7f4ec", "#cfc6b0"], ["#ffd9d6", "#d99a94"], ["#d6e9ff", "#8fb2d9"], ["#fff0b3", "#d4b95a"], ["#dcf3df", "#8cc29a"]];
+const POWDER_TAPE = ["#0f7a5c", "#3a7fc2", "#d1495b", "#8b58c2", "#ec8a35"];
+
+function spawn() {
+  if (!S.queue.length) return;
+  const name = S.queue.shift();
+  ctx.font = `700 13px ${css("--font-drug")}`;
+  const form = FORMS[Math.random() * 3 | 0];
+  const tw = ctx.measureText(name).width;
+  const w = form === "powder" ? Math.max(70, tw + 30) : form === "tablet" ? Math.max(62, tw + 24) : Math.max(60, tw + 18);
+  const h = form === "powder" ? 34 : form === "tablet" ? 30 : 28;
+  const x = w / 2 + 8 + Math.random() * (W - w - 16);
+  const k = S.colorI++;
+  S.items.push({
+    name, form, w, h, x, y: -20, vy: speed() * (0.92 + Math.random() * 0.16),
+    rot: (Math.random() - 0.5) * 0.3,
+    col: form === "tablet" ? TABLETS[k % TABLETS.length] : form === "powder" ? [POWDER_TAPE[k % POWDER_TAPE.length]] : CAPSULES[k % CAPSULES.length],
+    correct: name === curQ().a
+  });
+}
+
+// ---------- HUD ----------
+function updateHud() {
+  if (!S) return;
+  $("hudUnit").innerHTML = `單元 <b>${S.unit + 1}</b>`;
+  $("qnum").textContent = `${Math.min(S.qi + 1, 10)} / 10`;
+  $("score").textContent = S.score;
+  $("qtag").textContent = `${UNITS[S.unit].name} · ${UNITS[S.unit].en}`;
+  $("qtext").textContent = S.qi < S.order.length ? curQ().q : "單元結束";
+}
+function burst(x, y, color) {
+  for (let i = 0; i < 16; i++) {
+    const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 120;
+    S.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, t: 0.7, color });
+  }
+}
+
+// ---------- 輸入 ----------
+const keys = {};
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "Escape" || e.key === "p" || e.key === "P") {
+    if (S && S.mode === "paused") resumeGame(); else pauseGame("pause");
+    return;
+  }
+  keys[e.key] = true;
+  if ((e.key === " " || e.key === "Enter") && !$("ovFeedback").hidden) { e.preventDefault(); nextQuestion(); }
+  if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+});
+addEventListener("keyup", e => { keys[e.key] = false; });
+function pointerTo(e) {
+  if (!S) return;
+  const r = cv.getBoundingClientRect();
+  S.targetX = (e.clientX - r.left) / r.width * W;
+}
+cv.addEventListener("pointermove", pointerTo);
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); pointerTo(e); });
+
+// ---------- 一題的結果：每題只接一次 ----------
+function finishQuestion(picked) {
+  const q = curQ();
+  const right = picked === q.a;
+  S.log.push({ ...q, picked, right });
+  S.mode = "feedback";
+  S.items = []; S.queue = [];
+  if (right) S.score += 10;
+  updateHud();
+  const t = $("fbTitle");
+  if (right) {
+    t.textContent = "答對了！ +10"; t.style.color = "var(--good)";
+    $("fbExplain").innerHTML = `<strong>${q.a}</strong>：${q.why}`;
+  } else if (picked) {
+    t.textContent = "接錯了"; t.style.color = "var(--bad)";
+    $("fbExplain").innerHTML = `<strong>${picked}</strong> 是${q.wrong[picked]}。<br>正確答案 <strong>${q.a}</strong>：${q.why}`;
+  } else {
+    t.textContent = "這題沒接到"; t.style.color = "var(--bad)";
+    $("fbExplain").innerHTML = `正確答案 <strong>${q.a}</strong>：${q.why}`;
+  }
+  $("btnNext").textContent = S.qi === S.order.length - 1 ? "看結果" : "下一題";
+  setTimeout(() => { if (S.mode === "feedback") { $("ovFeedback").hidden = false; $("btnNext").focus(); } }, right || picked ? 350 : 0);
+}
+function nextQuestion() {
+  if (!S || S.mode !== "feedback") return;
+  $("ovFeedback").hidden = true;
+  S.qi++;
+  if (S.qi >= S.order.length) { endUnit(); return; }
+  S.mode = "play";
+  buildQueue(); updateHud();
+}
+
+// ---------- 單元結算 ----------
+function endUnit() {
+  S.mode = "end"; updateCtl();
+  const u = S.unit, passed = S.score === 100;
+  if (BEST[u] === null || S.score > BEST[u]) { BEST[u] = S.score; store("drugCatchBest", BEST); }
+  const last = u === UNITS.length - 1;
+  $("endTitle").textContent = passed ? (last ? "全部通關！" : "過關！") : "還差一點";
+  $("endTitle").style.color = passed ? "var(--good)" : "var(--ink)";
+  $("endScore").innerHTML = `${S.score}<small> / 100</small>`;
+  const wrongN = S.log.filter(l => !l.right).length;
+  $("endNote").textContent = passed
+    ? (last ? "10 個單元全部拿滿分，恭喜！" : `已解鎖單元 ${u + 2}：${UNITS[u + 1].name}`)
+    : `錯了 ${wrongN} 題。先看下面的錯題檢討，再重新挑戰；題目順序會重新洗牌。`;
+  const btns = [];
+  if (passed && !last) btns.push(`<button class="btn" data-act="next">下一單元</button>`);
+  if (!passed) btns.push(`<button class="btn" data-act="retry">重新挑戰</button>`);
+  btns.push(`<button class="btn ghost" data-act="units">單元列表</button>`);
+  $("endBtns").innerHTML = btns.join("");
+  // 沒過關：錯題排前面並附說明；過關：全部列出
+  const rows = passed ? S.log : [...S.log.filter(l => !l.right), ...S.log.filter(l => l.right)];
+  $("review").innerHTML = rows.map(l => l.right
+    ? `<li><span class="mark ok">✓</span><span>${l.q}<br><span class="drug">${l.a}</span></span></li>`
+    : `<li><span class="mark ng">✗</span><span>${l.q}<br>${l.picked
+        ? `你接了 <span class="drug ng">${l.picked}</span>（${l.wrong[l.picked]}）`
+        : `<span class="ng">沒接到</span>`}<br>正確答案 <span class="drug ok">${l.a}</span><br><span class="why">${l.why}</span></span></li>`
+  ).join("");
+  $("ovEnd").hidden = false;
+  $("ovEnd").scrollTop = 0;
+  $("endBtns").querySelector("button").focus();
+}
+$("endBtns").addEventListener("click", e => {
+  const act = e.target.closest("button")?.dataset.act;
+  if (act === "next") startUnit(S.unit + 1);
+  else if (act === "retry") startUnit(S.unit);
+  else if (act === "units") openUnits();
+});
+
+// ---------- 單元列表 ----------
+function openUnits() {
+  hideAll();
+  if (S) { S.mode = "idle"; S.items = []; S.queue = []; }
+  updateCtl();
+  const passedN = BEST.filter(b => b === 100).length;
+  $("progress").innerHTML = `已通過 <b>${passedN}</b> / ${UNITS.length} 個單元`;
+  // 預設選取：第一個已解鎖但還沒通過的單元
+  if (SEL === null || !unlocked(SEL)) {
+    SEL = UNITS.findIndex((_, i) => unlocked(i) && BEST[i] !== 100);
+    if (SEL < 0) SEL = 0;
+  }
+  $("unitList").innerHTML = UNITS.map((u, i) => {
+    const open = unlocked(i), passed = BEST[i] === 100;
+    const st = passed ? "通過 100 分" : !open ? "未解鎖" : BEST[i] === null ? "尚未挑戰" : `最高 ${BEST[i]} 分`;
+    return `<button class="unit${passed ? " passed" : ""}" data-i="${i}" aria-pressed="${i === SEL}" ${open ? "" : "disabled"}>
+      <span class="no">${passed ? "✓" : i + 1}</span><span class="nm">${u.name}</span><span class="st">${st}</span></button>`;
+  }).join("") +
+    `<button class="unit act restyle" data-act="restyle"><span class="nm">換藥籃</span><span class="st">重新選款式與顏色</span></button>
+     <button class="unit act go" data-act="go"><span class="nm">開始遊戲</span><span class="st" id="goLabel"></span></button>`;
+  updateGo();
+  $("qtag").textContent = "10 個單元 · 100 題";
+  $("qtext").textContent = "點選單元，再按「開始遊戲」";
+  $("hudUnit").innerHTML = "單元 <b>–</b>"; $("qnum").textContent = "– / 10"; $("score").textContent = "0";
+  $("ovUnits").hidden = false;
+  $("unitList").querySelector('[data-act="go"]').focus();
+}
+let SEL = null;
+function updateGo() { $("goLabel").textContent = `單元 ${SEL + 1}：${UNITS[SEL].name}`; }
+$("unitList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || b.disabled) return;
+  if (b.dataset.act === "restyle") { openSetup(); return; }
+  if (b.dataset.act === "go") { startUnit(SEL); return; }
+  SEL = +b.dataset.i;
+  $("unitList").querySelectorAll("[data-i]").forEach(x => x.setAttribute("aria-pressed", +x.dataset.i === SEL));
+  updateGo();
+});
+$("unitList").addEventListener("dblclick", e => {
+  const b = e.target.closest("button[data-i]"); if (b && !b.disabled) startUnit(+b.dataset.i);
+});
+function hideAll() { ["ovStart", "ovSetup", "ovUnits", "ovFeedback", "ovEnd", "ovPause"].forEach(id => $(id).hidden = true); }
+
+// ---------- 暫停／離開 ----------
+function updateCtl() { $("ctl").hidden = !(S && (S.mode === "play" || S.mode === "feedback")); }
+function pauseGame(kind) {
+  if (!S || (S.mode !== "play" && S.mode !== "feedback")) return;
+  S.prev = S.mode; S.mode = "paused";
+  S.fbWasOpen = !$("ovFeedback").hidden; $("ovFeedback").hidden = true;
+  const exit = kind === "exit";
+  $("pauseTitle").textContent = exit ? "要離開這個單元嗎？" : "暫停中";
+  $("pauseNote").textContent = exit ? "離開後，這次的分數不會記錄。" : "按「繼續」回到遊戲，或按 P／Esc。";
+  $("btnResume").textContent = exit ? "繼續玩" : "繼續";
+  $("ovPause").hidden = false;
+  updateCtl();
+  (exit ? $("btnLeave") : $("btnResume")).focus();
+}
+function resumeGame() {
+  if (!S || S.mode !== "paused") return;
+  S.mode = S.prev; $("ovPause").hidden = true;
+  if (S.mode === "feedback") { $("ovFeedback").hidden = false; $("btnNext").focus(); }
+  updateCtl();
+}
+$("btnPause").onclick = () => pauseGame("pause");
+$("btnExit").onclick = () => pauseGame("exit");
+$("btnResume").onclick = resumeGame;
+$("btnLeave").onclick = openUnits;
+document.addEventListener("visibilitychange", () => { if (document.hidden && S && S.mode === "play") pauseGame("pause"); });
+
+// ---------- 迴圈 ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (S) step(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+function step(dt) {
+  if (S.mode === "paused") return;
+  if (keys.ArrowLeft || keys.a || keys.A) S.targetX -= 360 * dt;
+  if (keys.ArrowRight || keys.d || keys.D) S.targetX += 360 * dt;
+  S.targetX = Math.max(BW / 2, Math.min(W - BW / 2, S.targetX));
+  S.basketX += (S.targetX - S.basketX) * Math.min(1, dt * 16);
+
+  if (S.mode === "play") {
+    S.spawnT -= dt;
+    if (S.spawnT <= 0) { spawn(); S.spawnT = gap(); }
+    for (const it of S.items) {
+      it.y += it.vy * dt;
+      const bottom = it.y + it.h / 2;
+      if (bottom >= BY && bottom <= BY + 22 && Math.abs(it.x - S.basketX) < BW / 2 + it.w * 0.15) {
+        burst(it.x, BY, css(it.correct ? "--good" : "--bad"));
+        finishQuestion(it.name);
+        break;
+      }
+      if (it.y - it.h > H) it.done = true;
+    }
+    if (S.mode === "play") {
+      S.items = S.items.filter(i => !i.done);
+      // 五顆都掉完、什麼都沒接到 → 這題結束
+      if (!S.queue.length && !S.items.length) finishQuestion(null);
+    }
+  }
+  for (const p of S.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.t -= dt; }
+  S.particles = S.particles.filter(p => p.t > 0);
+}
+
+function roundRect(x, y, w, h, r, c = ctx) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+function drawCapsule(it, c = ctx) {
+  c.save(); c.translate(it.x, it.y); c.rotate(it.rot);
+  const w = it.w, h = it.h;
+  if (it.form === "tablet") {
+    // 錠劑：扁圓形、外圈斜邊
+    c.fillStyle = "rgba(0,0,0,.12)"; c.beginPath(); c.ellipse(2, 4, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = it.col[1]; c.beginPath(); c.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = it.col[0]; c.beginPath(); c.ellipse(0, -1, w / 2 - 3, h / 2 - 3, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "rgba(255,255,255,.5)"; c.beginPath(); c.ellipse(-w * 0.18, -h * 0.22, w * 0.2, 3, 0, 0, Math.PI * 2); c.fill();
+  } else if (it.form === "powder") {
+    // 粉劑：藥包紙，左右鋸齒封邊、上方色帶
+    c.fillStyle = "rgba(0,0,0,.12)"; c.fillRect(-w / 2 + 2, -h / 2 + 4, w, h);
+    c.beginPath();
+    const zz = 4, n = 6;
+    c.moveTo(-w / 2, -h / 2); c.lineTo(w / 2, -h / 2);
+    for (let i = 1; i <= n; i++) c.lineTo(w / 2 - (i % 2 ? zz : 0), -h / 2 + i * h / n);
+    c.lineTo(-w / 2, h / 2);
+    for (let i = n - 1; i >= 0; i--) c.lineTo(-w / 2 + (i % 2 ? zz : 0), -h / 2 + i * h / n);
+    c.closePath();
+    c.fillStyle = "#fbfaf5"; c.fill();
+    c.strokeStyle = "rgba(0,0,0,.18)"; c.lineWidth = 1; c.stroke();
+    c.fillStyle = it.col[0]; c.fillRect(-w / 2 + 6, -h / 2, w - 12, 5);
+    c.fillStyle = "rgba(0,0,0,.12)";
+    for (let i = 0; i < 6; i++) c.fillRect(-w / 2 + 10 + i * (w - 20) / 5, h / 2 - 6 - (i % 2) * 2, 2, 2);
+  } else {
+    // 膠囊：兩色
+    c.fillStyle = "rgba(0,0,0,.12)"; roundRect(-w / 2 + 2, -h / 2 + 4, w, h, h / 2, c); c.fill();
+    c.save(); roundRect(-w / 2, -h / 2, w, h, h / 2, c); c.clip();
+    c.fillStyle = it.col[0]; c.fillRect(-w / 2, -h / 2, w / 2, h);
+    c.fillStyle = it.col[1]; c.fillRect(0, -h / 2, w / 2, h);
+    c.fillStyle = "rgba(255,255,255,.35)"; c.fillRect(-w / 2 + 10, -h / 2 + 5, w - 20, 4);
+    c.restore();
+  }
+  c.fillStyle = "#14211d"; c.font = `700 13px ${css("--font-drug")}`;
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,.75)";
+  c.strokeText(it.name, 0, 1); c.fillText(it.name, 0, 1);
+  c.restore();
+}
+
+// ---------- 藥籃：5 種款式 × 7 種顏色 ----------
+const STYLES = [
+  { id: "woven", name: "編織籃" },
+  { id: "box", name: "藥盒" },
+  { id: "beaker", name: "量杯" },
+  { id: "mortar", name: "研缽" },
+  { id: "bag", name: "藥袋" }
+];
+const COLORS = [
+  { name: "紅", base: "#d94f4f", dark: "#a33636", light: "#f29292" },
+  { name: "橙", base: "#ec8a35", dark: "#b5621d", light: "#f7b97f" },
+  { name: "黃", base: "#e6be2e", dark: "#a8851a", light: "#f5dc80" },
+  { name: "綠", base: "#3f9e63", dark: "#2a7046", light: "#84cb9e" },
+  { name: "藍", base: "#3a7fc2", dark: "#275b8f", light: "#86b8e6" },
+  { name: "靛", base: "#4a4ea6", dark: "#31347a", light: "#9195d9" },
+  { name: "紫", base: "#8b58c2", dark: "#633c90", light: "#c09de4" }
+];
+let CFG = { style: 0, color: 1, name: "" };
+{ const s = load("drugCatchBasket"); if (s && STYLES[s.style] && COLORS[s.color]) CFG = { name: "", ...s }; }
+
+// 名字寫在藥籃上：fill 為字色，stroke 為描邊，maxW 超過會自動縮小
+function nameText(c, text, x, y, size, maxW, fill, stroke) {
+  c.save();
+  c.font = `900 ${size}px ${css("--font-ui")}`; c.textAlign = "center"; c.textBaseline = "middle";
+  if (stroke) { c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = stroke; c.strokeText(text, x, y, maxW); }
+  c.fillStyle = fill; c.fillText(text, x, y, maxW);
+  c.restore();
+}
+
+function drawBasketOn(c, x, top, styleI, col, name = "") {
+  const style = STYLES[styleI].id, w = BW, h = 40;
+  c.save();
+  c.fillStyle = "rgba(0,0,0,.15)"; c.beginPath(); c.ellipse(x, top + h + 5, w * 0.5, 6, 0, 0, Math.PI * 2); c.fill();
+
+  if (style === "woven") {
+    c.beginPath();
+    c.moveTo(x - w / 2, top); c.lineTo(x + w / 2, top);
+    c.lineTo(x + w / 2 - 12, top + h); c.lineTo(x - w / 2 + 12, top + h); c.closePath();
+    c.fillStyle = col.base; c.fill();
+    c.save(); c.clip();
+    c.strokeStyle = col.dark; c.lineWidth = 2;
+    for (let i = -w; i < w; i += 12) { c.beginPath(); c.moveTo(x + i, top); c.lineTo(x + i + 30, top + h); c.stroke(); }
+    for (let j = 10; j < h; j += 10) { c.beginPath(); c.moveTo(x - w, top + j); c.lineTo(x + w, top + j); c.stroke(); }
+    c.restore();
+    c.fillStyle = col.light; roundRect(x - w / 2 - 4, top - 5, w + 8, 10, 5, c); c.fill();
+    if (name) nameText(c, name, x, top + 21, 14, w - 30, "#fff", col.dark);
+    else { c.fillStyle = "#fff"; c.fillRect(x - 3, top + 12, 6, 18); c.fillRect(x - 9, top + 18, 18, 6); }
+
+  } else if (style === "box") {
+    c.fillStyle = col.base; roundRect(x - w / 2, top, w, h, 7, c); c.fill();
+    const cw = (w - 10) / 4, labels = ["早", "午", "晚", "睡"];
+    c.font = `700 10px ${css("--font-ui")}`; c.textAlign = "center"; c.textBaseline = "middle";
+    for (let k = 0; k < 4; k++) {
+      const cx = x - w / 2 + 5 + k * cw;
+      c.fillStyle = col.light; roundRect(cx + 1.5, top + 7, cw - 3, h - 12, 4, c); c.fill();
+      c.fillStyle = col.dark; c.fillText(labels[k], cx + cw / 2, top + h / 2 + 2);
+    }
+    if (name) {
+      // 藥盒本身有字：名字小小的寫在盒蓋邊上
+      c.fillStyle = col.dark; roundRect(x - w / 2 - 3, top - 7, w + 6, 11, 5, c); c.fill();
+      nameText(c, name, x, top - 1.5, 8, w - 12, "#fff");
+    } else {
+      c.fillStyle = col.dark; roundRect(x - w / 2 - 3, top - 4, w + 6, 8, 4, c); c.fill();
+    }
+
+  } else if (style === "beaker") {
+    const bx = x - w / 2 + 6, bw = w - 12;
+    c.save(); roundRect(bx, top, bw, h, 7, c);
+    c.fillStyle = "rgba(255,255,255,.6)"; c.fill(); c.clip();
+    c.fillStyle = col.base; c.globalAlpha = 0.85; c.fillRect(bx, top + h * 0.42, bw, h); c.globalAlpha = 1;
+    c.fillStyle = col.light; c.fillRect(bx, top + h * 0.42, bw, 3);
+    c.restore();
+    c.strokeStyle = col.dark; c.lineWidth = 2.5; roundRect(bx, top, bw, h, 7, c); c.stroke();
+    c.lineWidth = 1.5; c.font = `700 8px ${css("--font-drug")}`; c.fillStyle = col.dark;
+    c.textAlign = "right"; c.textBaseline = "middle";
+    [[10, "100"], [20, "50"], [30, "25"]].forEach(([dy, t]) => {
+      c.beginPath(); c.moveTo(bx + bw - 4, top + dy); c.lineTo(bx + bw - 14, top + dy); c.stroke();
+      c.fillText(t, bx + bw - 16, top + dy);
+    });
+    c.fillStyle = col.dark; roundRect(bx - 4, top - 4, bw + 8, 6, 3, c); c.fill();
+    c.beginPath(); c.moveTo(bx - 4, top - 4); c.lineTo(bx - 11, top - 8); c.lineTo(bx - 4, top + 2); c.closePath(); c.fill();
+    if (name) nameText(c, name, x - 9, top + 28, 12, bw - 32, "#fff", col.dark);
+
+  } else if (style === "mortar") {
+    c.fillStyle = col.dark; roundRect(x - 22, top + h - 6, 44, 10, 4, c); c.fill();
+    c.beginPath(); c.moveTo(x - w / 2, top);
+    c.bezierCurveTo(x - w / 2, top + h * 1.15, x + w / 2, top + h * 1.15, x + w / 2, top); c.closePath();
+    c.fillStyle = col.base; c.fill();
+    c.fillStyle = "rgba(255,255,255,.18)";
+    c.beginPath(); c.ellipse(x - w * 0.22, top + 16, 8, 14, -0.5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = col.light; c.beginPath(); c.ellipse(x, top, w / 2, 6, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = col.dark; c.beginPath(); c.ellipse(x, top, w / 2 - 6, 3.5, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = col.light; c.lineWidth = 8; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x + 18, top - 1); c.lineTo(x + 34, top - 17); c.stroke();
+    c.strokeStyle = col.dark; c.lineWidth = 2; c.stroke();
+    if (name) nameText(c, name, x, top + 21, 13, w - 34, "#fff", col.dark);
+
+  } else if (style === "bag") {
+    c.beginPath(); c.moveTo(x - w / 2 + 5, top); c.lineTo(x + w / 2 - 5, top);
+    c.lineTo(x + w / 2, top + h); c.lineTo(x - w / 2, top + h); c.closePath();
+    c.fillStyle = col.base; c.fill();
+    c.strokeStyle = col.dark; c.globalAlpha = 0.45; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(x - w / 2 + 12, top + 3); c.lineTo(x - w / 2 + 9, top + h - 2); c.stroke();
+    c.beginPath(); c.moveTo(x + w / 2 - 12, top + 3); c.lineTo(x + w / 2 - 9, top + h - 2); c.stroke();
+    c.globalAlpha = 1;
+    c.fillStyle = col.light; c.beginPath(); c.moveTo(x - w / 2 + 5, top);
+    for (let i = 0, xx = x - w / 2 + 5; xx < x + w / 2 - 5; i++, xx += 6) c.lineTo(Math.min(xx + 6, x + w / 2 - 5), top + (i % 2 ? 0 : -5));
+    c.lineTo(x + w / 2 - 5, top + 3); c.lineTo(x - w / 2 + 5, top + 3); c.closePath(); c.fill();
+    c.fillStyle = "#fff"; roundRect(x - 26, top + 10, 52, 22, 3, c); c.fill();
+    c.fillStyle = col.dark; c.textAlign = "center"; c.textBaseline = "middle";
+    if (name) {
+      // 藥袋本身有字：「藥袋」縮小，名字小字寫在標籤第二行
+      c.font = `900 8px ${css("--font-ui")}`; c.fillText("藥 袋", x, top + 15.5);
+      c.fillRect(x - 18, top + 20, 36, 1);
+      nameText(c, name, x, top + 26, 9, 46, col.dark);
+    } else {
+      c.font = `900 11px ${css("--font-ui")}`; c.fillText("藥 袋", x, top + 18);
+      c.fillRect(x - 18, top + 26, 36, 1.5);
+    }
+  }
+  c.restore();
+}
+function drawBasket(x) { drawBasketOn(ctx, x, BY, CFG.style, COLORS[CFG.color], CFG.name); }
+
+// 名字輸入：開始畫面與選藥籃畫面同步
+function setName(v) {
+  CFG.name = v.trim().slice(0, 8);
+  store("drugCatchBasket", CFG);
+  ["nameInput", "nameSetup"].forEach(id => { if ($(id).value !== v) $(id).value = v; });
+  if (!$("ovSetup").hidden) renderSetup();
+}
+$("nameInput").value = $("nameSetup").value = CFG.name;
+$("nameInput").addEventListener("input", e => setName(e.target.value));
+$("nameSetup").addEventListener("input", e => setName(e.target.value));
+$("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") $("btnStart").click(); });
+
+// ---------- 選藥籃畫面 ----------
+function hiDpi(cnv, lw, lh) {
+  const s = 2; cnv.width = lw * s; cnv.height = lh * s;
+  const c = cnv.getContext("2d"); c.setTransform(s, 0, 0, s, 0, 0); return c;
+}
+function renderSetup() {
+  const sl = $("styleList");
+  sl.innerHTML = STYLES.map((s, i) =>
+    `<button class="opt" type="button" data-i="${i}" aria-pressed="${i === CFG.style}"><canvas></canvas><span>${s.name}</span></button>`).join("");
+  sl.querySelectorAll("canvas").forEach((cnv, i) => drawBasketOn(hiDpi(cnv, 130, 84), 65, 28, i, COLORS[CFG.color], CFG.name));
+  $("colorList").innerHTML = COLORS.map((k, i) =>
+    `<button class="swatch" type="button" data-i="${i}" aria-pressed="${i === CFG.color}" aria-label="${k.name}色"><i style="background:${k.base}"></i><span>${k.name}</span></button>`).join("");
+  const c = hiDpi($("preview"), 300, 180);
+  const g = c.createLinearGradient(0, 0, 0, 180);
+  g.addColorStop(0, css("--field-top")); g.addColorStop(1, css("--field-bot"));
+  c.fillStyle = g; c.fillRect(0, 0, 300, 180);
+  c.fillStyle = css("--line"); c.fillRect(0, 170, 300, 10);
+  c.font = `700 13px ${css("--font-drug")}`;
+  [["Clonidine", 70, 30, "capsule", CAPSULES[1], -0.12, 28, 18], ["Prazosin", 236, 44, "tablet", TABLETS[2], 0.1, 30, 24],
+   ["Atropine", 160, 74, "powder", [POWDER_TAPE[0]], -0.05, 34, 30]].forEach(([name, x, y, form, col, rot, h, pad]) =>
+    drawCapsule({ name, x, y, form, w: Math.max(60, c.measureText(name).width + pad), h, rot, col }, c));
+  drawBasketOn(c, 150, 116, CFG.style, COLORS[CFG.color], CFG.name);
+  $("previewName").textContent = `${COLORS[CFG.color].name}色 · ${STYLES[CFG.style].name}` + (CFG.name ? ` · ${CFG.name}` : "");
+}
+$("styleList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  CFG.style = +b.dataset.i; renderSetup();
+  document.querySelector(`#styleList [data-i="${CFG.style}"]`).focus();
+});
+$("colorList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  CFG.color = +b.dataset.i; renderSetup();
+  document.querySelector(`#colorList [data-i="${CFG.color}"]`).focus();
+});
+function openSetup() {
+  hideAll();
+  $("ovSetup").hidden = false;
+  renderSetup();
+  document.fonts.ready.then(renderSetup);
+}
+
+$("btnStart").onclick = openSetup;
+$("btnConfirm").onclick = () => { store("drugCatchBasket", CFG); openUnits(); };
+$("btnNext").onclick = nextQuestion;
+
+function draw() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, css("--field-top")); g.addColorStop(1, css("--field-bot"));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = css("--line"); ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+  for (let y = 60; y < H - 80; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = css("--line"); ctx.fillRect(0, H - 12, W, 12);
+  if (!S) { drawBasket(W / 2); return; }
+  for (const it of S.items) drawCapsule(it);
+  drawBasket(S.basketX);
+  for (const p of S.particles) { ctx.globalAlpha = Math.max(0, p.t / 0.7); ctx.fillStyle = p.color; ctx.fillRect(p.x - 3, p.y - 3, 6, 6); }
+  ctx.globalAlpha = 1;
+}
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>
